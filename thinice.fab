@@ -1,0 +1,87 @@
+vars /game_vars
+    CCC/levels level_ptr
+
+
+// a = ice
+// b = wall
+// c = water
+// d = goal
+// e = background
+// f = thick ice
+charmap("EAFBCD", 0)
+
+data /levels
+    [] level1
+        ("EEEEEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEEEEE"
+         "EBBBBBBBBBBBBBBBBBE"
+         "EBDAAAAAAAAAAAAAABE"
+         "EBBBBBBBBBBBBBBBBBE"
+         "EEEEEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEEEEE")
+
+fn load_level()
+    ppu_reset_addr($2000)
+
+    U i = 0
+    U j = 0
+    UU k = 480
+    for ; i < 15; i += 1
+        for j = 0; j < 19; j += 1
+            {PPUDATA}((level_ptr + UU(i * 19))[j])
+        for j = 19; j < 32; j += 1
+            {PPUDATA}(1)
+    for ; k < 960; k += 1
+        {PPUDATA}(1)
+
+    for U i = 0; i < 64; i += 1
+        {PPUDATA}(0)
+
+nmi main_nmi()
+    ppu_upload_oam_poll_pads(0)
+    {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
+    ppu_reset_scroll(0, 0)
+
+mode main()
+: nmi main_nmi
+
+    palette = U[25](
+    
+    // ice / water block
+    // light blue, mid light, dark blue
+    $31, $21, $02,
+    // goal block
+    // dark red, light red, unused
+    $06, $26, $02,
+
+    // unused
+    $15, $23, $31,
+    $17, $25, $33,
+
+    $02, $14, $26,
+    $04, $16, $28,
+    $06, $18, $2A,
+    $08, $1A, $2C,
+
+    // white
+    $30)
+    ppu_upload_palette()
+
+    level_ptr = @level1
+    load_level()
+
+    {PPUCTRL}(PPUCTRL_NMI_ON)
+
+    while true
+        nmi
+
+chrrom
+    file(fmt, "tiles.png")
