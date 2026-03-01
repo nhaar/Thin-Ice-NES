@@ -27,9 +27,23 @@ data /levels
          "EEEEEEEEEEEEEEEE"
          "EEEEEEEEEEEEEEEE"
          "EEEEEEEEEEEEEEEE")
+    [5] tile_palettes
+        U(0)
+        U(0)
+        U(0)
+        U(0)
+        U(1)
 
 fn tile_at(U x, U y) U
     return (level_ptr + UU(y * 16))[x]
+
+// returns which background color palette is used at the given board tile
+fn palette_from_tile_at(U x, U y) U
+    return (@tile_palettes) [tile_at(x, y)]
+
+// get the ppu attribute byte given the palettes in the four corners
+fn get_ppu_attribute(U topleft, U topright, U bottomleft, U bottomright) U
+    return (bottomright << 6) | (bottomleft << 4) | (topright << 2) | (topleft << 0)
 
 fn load_level()
     ppu_reset_addr($2000)
@@ -48,8 +62,22 @@ fn load_level()
             {PPUDATA}(U((type * 2) + 16))
             {PPUDATA}(U((type * 2) + 17))
 
-    for i = 0; i < 64; i += 1
-        {PPUDATA}(0)
+    for i = 0; i < 15; i += 2
+        for j = 0; j < 16; j += 2
+            {PPUDATA}(get_ppu_attribute(
+               palette_from_tile_at(j, i),
+               palette_from_tile_at(j + 1, i),
+               palette_from_tile_at(j, i + 1),
+               palette_from_tile_at(j + 1, i + 1) 
+            ))
+            
+    for j = 0; j < 16; j += 2
+        {PPUDATA}(get_ppu_attribute(
+            palette_from_tile_at(j, 16),
+            palette_from_tile_at(j + 1, 16),
+            0,
+            0 
+        ))
 
 nmi main_nmi()
     ppu_upload_oam_poll_pads(0)
