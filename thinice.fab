@@ -31,18 +31,28 @@ data /levels
 fn load_level()
     ppu_reset_addr($2000)
 
-    U i = 0
+    UU i = 0
     U j = 0
-    UU k = 480
-    for ; i < 15; i += 1
+
+    // in order to center, padding top, then left right, and finally bottom
+    // leftover vertically is (30 - 15), thus 7 top and 8 bottom
+    // 7 x 32 = 224
+    // 8 x 32 = 256
+    // leftover horizontally is (30 - 19), thus 6 left and 7 right
+    for i = 0; i < 224; i += 1
+        {PPUDATA}(0)
+
+    for i = 0; i < 15; i += 1
+        for j = 0; j < 6; j += 1
+            {PPUDATA}(0)
         for j = 0; j < 19; j += 1
             {PPUDATA}((level_ptr + UU(i * 19))[j])
-        for j = 19; j < 32; j += 1
-            {PPUDATA}(1)
-    for ; k < 960; k += 1
-        {PPUDATA}(1)
+        for j = 0; j < 7; j += 1
+            {PPUDATA}(0)
+    for i = 0; i < 256; i += 1
+        {PPUDATA}(0)
 
-    for U i = 0; i < 64; i += 1
+    for i = 0; i < 64; i += 1
         {PPUDATA}(0)
 
 nmi main_nmi()
