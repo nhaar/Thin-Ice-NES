@@ -8,49 +8,45 @@ vars /game_vars
 // d = goal
 // e = background
 // f = thick ice
-charmap("EAFBCD", 0)
+charmap("AECBD", 0)
 
 data /levels
     [] level1
-        ("EEEEEEEEEEEEEEEEEEE"
-         "EEEEEEEEEEEEEEEEEEE"
-         "EEEEEEEEEEEEEEEEEEE"
-         "EEEEEEEEEEEEEEEEEEE"
-         "EEEEEEEEEEEEEEEEEEE"
-         "EEEEEEEEEEEEEEEEEEE"
-         "EEEEEEEEEEEEEEEEEEE"
-         "EEEEEEEEEEEEEEEEEEE"
-         "EEEEEEEEEEEEEEEEEEE"
-         "EBBBBBBBBBBBBBBBBBE"
-         "EBDAAAAAAAAAAAAAABE"
-         "EBBBBBBBBBBBBBBBBBE"
-         "EEEEEEEEEEEEEEEEEEE"
-         "EEEEEEEEEEEEEEEEEEE"
-         "EEEEEEEEEEEEEEEEEEE")
+        ("EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "BBBBBBBBBBBBBBBB"
+         "DAAAAAAAAAAAAAAB"
+         "BBBBBBBBBBBBBBBB"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE")
+
+fn tile_at(U x, U y) U
+    return (level_ptr + UU(y * 16))[x]
 
 fn load_level()
     ppu_reset_addr($2000)
 
-    UU i = 0
+    U i = 0
     U j = 0
-
-    // in order to center, padding top, then left right, and finally bottom
-    // leftover vertically is (30 - 15), thus 7 top and 8 bottom
-    // 7 x 32 = 224
-    // 8 x 32 = 256
-    // leftover horizontally is (30 - 19), thus 6 left and 7 right
-    for i = 0; i < 224; i += 1
-        {PPUDATA}(0)
+    U type = 0
 
     for i = 0; i < 15; i += 1
-        for j = 0; j < 6; j += 1
-            {PPUDATA}(0)
-        for j = 0; j < 19; j += 1
-            {PPUDATA}((level_ptr + UU(i * 19))[j])
-        for j = 0; j < 7; j += 1
-            {PPUDATA}(0)
-    for i = 0; i < 256; i += 1
-        {PPUDATA}(0)
+        for j = 0; j < 16; j += 1
+            type = tile_at(j, i)
+            {PPUDATA}(U(type * 2))
+            {PPUDATA}(U((type * 2) + 1))
+        for j = 0; j < 16; j += 1
+            type = tile_at(j, i)
+            {PPUDATA}(U((type * 2) + 16))
+            {PPUDATA}(U((type * 2) + 17))
 
     for i = 0; i < 64; i += 1
         {PPUDATA}(0)
