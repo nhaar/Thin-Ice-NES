@@ -1,6 +1,7 @@
 vars /game_vars
     CCC/levels level_ptr
-
+    U puffle_x = 14
+    U puffle_y = 10
 
 // a = ice
 // b = wall
@@ -33,6 +34,21 @@ data /levels
         U(0)
         U(0)
         U(1)
+
+fn update_sprites()
+    U i = 0
+    U j = 0
+    U k = 0
+    
+    for ; k < 2; k += 1
+        for j = 0; j < 2; j += 1
+            set_oam_x(i, U(puffle_x * 16 + j * 8))
+            set_oam_y(i, U(puffle_y * 16 + 8 * k) - 1)
+            set_oam_p(i, U(16 * k) + 32 + j)
+            set_oam_a(i, 0)
+            i += 4
+
+    hide_oam(i)
 
 fn tile_at(U x, U y) U
     return (level_ptr + UU(y * 16))[x]
@@ -100,7 +116,8 @@ mode main()
     $15, $23, $31,
     $17, $25, $33,
 
-    $02, $14, $26,
+    // puffle
+    $0F, $27, $16,
     $04, $16, $28,
     $06, $18, $2A,
     $08, $1A, $2C,
@@ -115,6 +132,8 @@ mode main()
     {PPUCTRL}(PPUCTRL_NMI_ON)
 
     while true
+        update_pads()
+        update_sprites()
         nmi
 
 chrrom
