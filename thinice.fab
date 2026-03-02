@@ -49,6 +49,23 @@ fn move_puffle_sprite()
     else if movement_direction == 4
         puffle_x += movement_constant
 
+fn can_move() Bool
+    U x = puffle_x
+    U y = puffle_y
+    if movement_direction == 1
+        y -= 16
+    else if movement_direction == 2
+        y += 16
+    else if movement_direction == 3
+        x -= 16
+    else if movement_direction == 4
+        x += 16
+    U target = tile_at_abs(x, y)
+    if ((target == 'A') || (target == 'D'))
+        return true
+    else
+        return false
+
 
 fn move_puffle()
     if movement_timer == 0
@@ -63,8 +80,11 @@ fn move_puffle()
         else
             movement_direction = 0
         if movement_direction != 0
-            movement_timer = 1
-            move_puffle_sprite()
+            if can_move()
+                movement_timer = 1
+                move_puffle_sprite()
+            else
+                movement_direction = 0
     else
         movement_timer += 1
         move_puffle_sprite()
@@ -88,6 +108,11 @@ fn update_sprites()
 
 fn tile_at(U x, U y) U
     return (level_ptr + UU(y * 16))[x]
+
+fn tile_at_abs(U x, U y) U
+    x >>= 4
+    y >>= 4
+    return tile_at(x, y)
 
 // returns which background color palette is used at the given board tile
 fn palette_from_tile_at(U x, U y) U
