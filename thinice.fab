@@ -1,7 +1,11 @@
 vars /game_vars
     CCC/levels level_ptr
-    U puffle_x = 14
-    U puffle_y = 10
+    // x * 16, y * 16
+    U puffle_x = 224
+    U puffle_y = 160
+    U movement_timer = 0
+    U movement_direction = 0
+    U movement_constant = 2
 
 // a = ice
 // b = wall
@@ -35,6 +39,38 @@ data /levels
         U(0)
         U(1)
 
+fn move_puffle_sprite()
+    if movement_direction == 1
+        puffle_y -= movement_constant
+    else if movement_direction == 2
+        puffle_y += movement_constant
+    else if movement_direction == 3
+        puffle_x -= movement_constant
+    else if movement_direction == 4
+        puffle_x += movement_constant
+
+
+fn move_puffle()
+    if movement_timer == 0
+        if pads[0].held & BUTTON_UP
+            movement_direction = 1
+        else if pads[0].held & BUTTON_DOWN
+            movement_direction = 2
+        else if pads[0].held & BUTTON_LEFT
+            movement_direction = 3
+        else if pads[0].held & BUTTON_RIGHT
+            movement_direction = 4
+        else
+            movement_direction = 0
+        if movement_direction != 0
+            movement_timer = 1
+            move_puffle_sprite()
+    else
+        movement_timer += 1
+        move_puffle_sprite()
+        if movement_timer >= 8
+            movement_timer = 0
+
 fn update_sprites()
     U i = 0
     U j = 0
@@ -42,8 +78,8 @@ fn update_sprites()
     
     for ; k < 2; k += 1
         for j = 0; j < 2; j += 1
-            set_oam_x(i, U(puffle_x * 16 + j * 8))
-            set_oam_y(i, U(puffle_y * 16 + 8 * k) - 1)
+            set_oam_x(i, U(puffle_x + U(j * 8)))
+            set_oam_y(i, U(puffle_y + U(8 * k)) - 1)
             set_oam_p(i, U(16 * k) + 32 + j)
             set_oam_a(i, 0)
             i += 4
@@ -133,6 +169,7 @@ mode main()
 
     while true
         update_pads()
+        move_puffle()
         update_sprites()
         nmi
 
