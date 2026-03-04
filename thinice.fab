@@ -8,6 +8,7 @@ vars /game_vars
     U movement_constant = 2
     U[240] current_level
     TileDelta tile_delta = TileDelta(0, 0, 0)
+    U level_number = 1
 
 struct TileDelta
     U type
@@ -36,6 +37,22 @@ data /levels
          "BBBBBBBBBBBBBBBB"
          "DAAAAAAAAAAAAAAB"
          "BBBBBBBBBBBBBBBB"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE")
+    [] level2
+        ("EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEBBBEE"
+         "EEEBBBBBBBEBDBEE"
+         "EEEBAAAAABEBABEE"
+         "BBBBABBBABBBABEE"
+         "AAAAABEBAAAAABEE"
+         "BBBBBBEBBBBBBBEE"
          "EEEEEEEEEEEEEEEE"
          "EEEEEEEEEEEEEEEE"
          "EEEEEEEEEEEEEEEE")
@@ -73,22 +90,48 @@ fn can_move() Bool
     else
         return false
 
+struct Coord
+    U x
+    U y
 
-// melts the tile the puffle is at by one stage
-fn melt_tile()
+fn next_level()
+    level_number += 1
+    if (level_number == 2)
+        level_ptr = @level2
+
+
+fn get_current_tile() Coord
     U x = puffle_x
     U y = puffle_y
     x >>= 4
     y >>= 4
-    U tile = tile_at(x, y)
+    return Coord(x, y)
+
+
+// melts the tile the puffle is at by one stage
+fn melt_tile()
+    Coord coords = get_current_tile()
+    U tile = tile_at(coords.x, coords.y)
     U new_tile = 0
 
     // ice -> water
     if (tile == 'A')
         new_tile = 'C'
 
-    current_level[get_tile_index(x, y)] = new_tile
-    tile_delta = TileDelta(new_tile, x, y)
+    current_level[get_tile_index(coords.x, coords.y)] = new_tile
+    tile_delta = TileDelta(new_tile, coords.x, coords.y)
+
+fn check_destination_tile()
+    Coord coords = get_current_tile()
+    U tile = tile_at(coords.x, coords.y)
+    if tile == 'D'
+        {PPUMASK}(0)
+        {PPUCTRL}(0)
+        next_level()
+        load_level_into_memory()
+        load_level()
+        {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
+        {PPUCTRL}(PPUCTRL_NMI_ON)
 
 fn move_puffle()
     if movement_timer == 0
@@ -114,6 +157,8 @@ fn move_puffle()
         move_puffle_sprite()
         if movement_timer >= 8
             movement_timer = 0
+            check_destination_tile()
+
 
 fn update_sprites()
     U i = 0
