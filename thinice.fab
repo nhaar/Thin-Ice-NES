@@ -56,6 +56,22 @@ data /levels
          "EEEEEEEEEEEEEEEE"
          "EEEEEEEEEEEEEEEE"
          "EEEEEEEEEEEEEEEE")
+    [] level3
+        ("EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE"
+         "BBBEEEEEEEEBBBEE"
+         "BDBEEEEEEEEBDBEE"
+         "BABBBBBEEEEBABEE"
+         "BABBAABBBBBBABEE"
+         "BAAAAAAAAAAAABEE"
+         "BAABBBBAABBAABEE"
+         "BBBBEEBBBBBBBBEE"
+         "EEEEEEEEEEEEEEEE"
+         "EEEEEEEEEEEEEEEE")
     [5] tile_palettes
         U(0)
         U(0)
@@ -94,10 +110,17 @@ struct Coord
     U x
     U y
 
-fn next_level()
+fn next_level() CCC/levels
     level_number += 1
-    if (level_number == 2)
-        level_ptr = @level2
+    switch level_number
+        case 2
+            return @level2
+        case 3
+            return @level3
+    // if (level_number == 2)
+    //     return @level2
+    // else if (level_number == 3)
+    //     return @level3
 
 
 fn get_current_tile() Coord
@@ -127,7 +150,7 @@ fn check_destination_tile()
     if tile == 'D'
         {PPUMASK}(0)
         {PPUCTRL}(0)
-        next_level()
+        level_ptr = next_level()
         load_level_into_memory()
         load_level()
         {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
