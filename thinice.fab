@@ -8,6 +8,7 @@ vars /game_vars
     U[240] current_level
     TileDelta tile_delta = TileDelta(0, 0, 0)
     U level_number = 1
+    Coord spawn_point = Coord(16, 16)
 
 ct U TILE_LENGTH = 16
 ct U MOVEMENT_LENGTH = 8
@@ -103,14 +104,17 @@ fn get_coord_in_direction(Coord coord, U direction) Coord
     if direction == 4
         return Coord(coord.x + 1, coord.y)
 
+fn is_tile_moveable(U tile) Bool
+    if (tile == 'A') || (tile == 'D')
+        return true
+    else
+        return false
+
 fn can_move() Bool
     U target = tile_at_coord(
         get_coord_in_direction(get_current_tile(), movement_direction)
     )
-    if ((target == 'A') || (target == 'D'))
-        return true
-    else
-        return false
+    return is_tile_moveable(target)
 
 struct Coord
     U x
@@ -150,17 +154,47 @@ fn melt_tile()
     current_level[get_tile_index(coords.x, coords.y)] = new_tile
     tile_delta = TileDelta(new_tile, coords.x, coords.y)
 
+fn disable_rendering()
+    {PPUMASK}(0)
+    {PPUCTRL}(0)
+
+fn enable_rendering()
+    {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
+    {PPUCTRL}(PPUCTRL_NMI_ON)
+
+fn build_next_level()
+    spawn_point = get_current_tile()
+    disable_rendering()
+    level_ptr = next_level()
+    load_level_into_memory()
+    load_level()
+    enable_rendering()
+
+fn rebuild_level()
+    disable_rendering()
+    load_level_into_memory()
+    load_level()
+    enable_rendering()
+
+fn die()
+    rebuild_level()
+    puffle_x = U(spawn_point.x * TILE_LENGTH)
+    puffle_y = U(spawn_point.y * TILE_LENGTH)
+
 fn check_destination_tile()
     Coord coords = get_current_tile()
     U tile = tile_at(coords.x, coords.y)
     if tile == 'D'
-        {PPUMASK}(0)
-        {PPUCTRL}(0)
-        level_ptr = next_level()
-        load_level_into_memory()
-        load_level()
-        {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
-        {PPUCTRL}(PPUCTRL_NMI_ON)
+        build_next_level()
+    else
+        U neighbor = 0
+        Bool can_move = false
+        for U i = 1; i < 5; i += 1
+            if is_tile_moveable(tile_at_coord(get_coord_in_direction(coords, i)))
+                can_move = true
+                break
+        if !can_move
+            die()
 
 fn move_puffle()
     if movement_timer == 0
