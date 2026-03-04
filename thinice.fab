@@ -5,10 +5,13 @@ vars /game_vars
     U puffle_y = 160
     U movement_timer = 0
     U movement_direction = 0
-    U movement_constant = 2
     U[240] current_level
     TileDelta tile_delta = TileDelta(0, 0, 0)
     U level_number = 1
+
+ct U TILE_LENGTH = 16
+ct U MOVEMENT_LENGTH = 8
+ct U MOVEMENT_CONSTANT = TILE_LENGTH / MOVEMENT_LENGTH
 
 struct TileDelta
     U type
@@ -22,6 +25,7 @@ struct TileDelta
 // e = background
 // f = thick ice
 charmap("AECBD", 0)
+
 
 data /levels
     [] level1
@@ -81,26 +85,28 @@ data /levels
 
 fn move_puffle_sprite()
     if movement_direction == 1
-        puffle_y -= movement_constant
+        puffle_y -= MOVEMENT_CONSTANT
     else if movement_direction == 2
-        puffle_y += movement_constant
+        puffle_y += MOVEMENT_CONSTANT
     else if movement_direction == 3
-        puffle_x -= movement_constant
+        puffle_x -= MOVEMENT_CONSTANT
     else if movement_direction == 4
-        puffle_x += movement_constant
+        puffle_x += MOVEMENT_CONSTANT
+
+fn get_coord_in_direction(Coord coord, U direction) Coord
+    if direction == 1
+        return Coord(coord.x, coord.y - 1)
+    if direction == 2
+        return Coord(coord.x, coord.y + 1)
+    if direction == 3
+        return Coord(coord.x - 1, coord.y)
+    if direction == 4
+        return Coord(coord.x + 1, coord.y)
 
 fn can_move() Bool
-    U x = puffle_x
-    U y = puffle_y
-    if movement_direction == 1
-        y -= 16
-    else if movement_direction == 2
-        y += 16
-    else if movement_direction == 3
-        x -= 16
-    else if movement_direction == 4
-        x += 16
-    U target = tile_at_abs(x, y)
+    U target = tile_at_coord(
+        get_coord_in_direction(get_current_tile(), movement_direction)
+    )
     if ((target == 'A') || (target == 'D'))
         return true
     else
@@ -197,6 +203,9 @@ fn update_sprites()
             i += 4
 
     hide_oam(i)
+
+fn tile_at_coord(Coord coord) U
+    return tile_at(coord.x, coord.y)
 
 fn tile_at(U x, U y) U
     return current_level[get_tile_index(x, y)]
