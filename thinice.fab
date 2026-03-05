@@ -14,6 +14,11 @@ ct U TILE_LENGTH = 16
 ct U MOVEMENT_LENGTH = 8
 ct U MOVEMENT_CONSTANT = TILE_LENGTH / MOVEMENT_LENGTH
 
+ct U DIRECTION_UP = 1
+ct U DIRECTION_DOWN = 2
+ct U DIRECTION_LEFT = 3
+ct U DIRECTION_RIGHT = 4
+
 struct TileDelta
     U type
     U x
@@ -126,12 +131,6 @@ fn is_tile_moveable(U tile) Bool
     else
         return false
 
-fn can_move() Bool
-    U target = tile_at_coord(
-        get_coord_in_direction(get_current_tile(), movement_direction)
-    )
-    return is_tile_moveable(target)
-
 struct Coord
     U x
     U y
@@ -210,25 +209,24 @@ fn check_destination_tile()
         if !can_move
             die()
 
+fn can_move_in_direction(U direction) Bool
+    return is_tile_moveable(tile_at_coord(get_coord_in_direction(get_current_tile(), direction)))
+
 fn move_puffle()
     if movement_timer == 0
-        if pads[0].held & BUTTON_UP
-            movement_direction = 1
-        else if pads[0].held & BUTTON_DOWN
-            movement_direction = 2
-        else if pads[0].held & BUTTON_LEFT
-            movement_direction = 3
-        else if pads[0].held & BUTTON_RIGHT
-            movement_direction = 4
-        else
-            movement_direction = 0
+        movement_direction = 0
+        if ((pads[0].held & BUTTON_LEFT) && can_move_in_direction(DIRECTION_LEFT))
+            movement_direction = DIRECTION_LEFT
+        if ((pads[0].held & BUTTON_RIGHT) && can_move_in_direction(DIRECTION_RIGHT))
+            movement_direction = DIRECTION_RIGHT
+        if ((pads[0].held & BUTTON_DOWN) && can_move_in_direction(DIRECTION_DOWN))
+            movement_direction = DIRECTION_DOWN
+        if ((pads[0].held & BUTTON_UP) && can_move_in_direction(DIRECTION_UP))
+            movement_direction = DIRECTION_UP
         if movement_direction != 0
-            if can_move()
-                melt_tile()
-                movement_timer = 1
-                move_puffle_sprite()
-            else
-                movement_direction = 0
+            melt_tile()
+            movement_timer = 1
+            move_puffle_sprite()
     else
         movement_timer += 1
         move_puffle_sprite()
