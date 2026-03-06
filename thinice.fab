@@ -12,6 +12,11 @@ vars /game_vars
     Bool has_key = false
     Coord update_key_tile = Coord(0, 0)
 
+    U block_timer = 0
+    U block_direction = 0
+    Coord block_spawn = Coord(0, 0)
+    Coord block_pos = Coord(0, 0)
+
 ct U TILE_LENGTH = 16
 ct U MOVEMENT_LENGTH = 8
 ct U MOVEMENT_CONSTANT = TILE_LENGTH / MOVEMENT_LENGTH
@@ -34,7 +39,9 @@ struct TileDelta
 // f = thick ice
 // k = key tile
 // l = lock tile
-charmap("AECBDFKL", 0)
+// h = hole
+// z = block spawn tile
+charmap("AECBDFKLHZ", 0)
 
 
 data /levels
@@ -230,6 +237,22 @@ data /levels
          "BFBBBBBBBBBBBBBB"
          "BKBEEEEEEEEEEEEE"
          "BBBEEEEEEEEEEEEE")
+    [] level13
+        ("EEEEEBBBBEBBBEEE"
+         "BBBBBBAABBBABEEE"
+         "BAABAAAFAAFFBEEE"
+         "BAAAAAAABBAABEEE"
+         "BABBBAAAAAAABBEE"
+         "BABHBBBBBFFFABEE"
+         "BFAAAAAAAFAABBEE"
+         "BABABBAAAFFFBEEE"
+         "BABABAAAAAAFBEEE"
+         "BABABAAAAFFFBEEE"
+         "BABZBBBBBFABBBBB"
+         "BAAABDALAFBBAAAB"
+         "BAABBBBBBAAAAAAB"
+         "BKABEEEEBBBBBBBB"
+         "BBBBEEEEEEEEEEEE")
     [] tile_palettes
         U(0)
         U(0)
@@ -239,6 +262,7 @@ data /levels
         U(2)
         U(3)
         U(3)
+        U(0)
 
 fn move_puffle_sprite()
     if movement_direction == 1
@@ -261,7 +285,7 @@ fn get_coord_in_direction(Coord coord, U direction) Coord
         return Coord(coord.x + 1, coord.y)
 
 fn is_tile_moveable(U tile) Bool
-    if (tile == 'A') || (tile == 'D') || (tile == 'F') || tile == 'K'
+    if (tile == 'A') || (tile == 'D') || (tile == 'F') || tile == 'K' || tile == 'H'
         return true
     else
         return false
@@ -269,6 +293,9 @@ fn is_tile_moveable(U tile) Bool
 struct Coord
     U x
     U y
+
+fn compare_coord(Coord a, Coord b) Bool
+    return (a.x == b.x) && (a.y == b.y)
 
 fn next_level() CCC/levels
     level_number += 1
@@ -295,6 +322,8 @@ fn next_level() CCC/levels
             return @level11
         case 12
             return @level12
+        case 13
+            return @level13
 
 
 fn get_current_tile() Coord
@@ -352,6 +381,7 @@ fn die()
 
 fn check_destination_tile()
     Coord coords = get_current_tile()
+    Coord block_coord = get_block_coord()
     U tile = tile_at(coords.x, coords.y)
     if tile == 'D'
         build_next_level()
@@ -364,20 +394,44 @@ fn check_destination_tile()
         Bool can_move = false
         for U i = 1; i < 5; i += 1
             neighbor = get_coord_in_direction(coords, i)
-            neighbor_tile = tile_at_coord(neighbor)
-            if neighbor_tile == 'L'
-                if has_key
+            if compare_coord(block_coord, neighbor)
+                if can_block_move(i)
                     can_move = true
-                    update_key_tile = neighbor
                     break
+            else
+                neighbor_tile = tile_at_coord(neighbor)
+                if neighbor_tile == 'L'
+                    if has_key
+                        can_move = true
+                        update_key_tile = neighbor
+                        break
 
-            else if is_tile_moveable(neighbor_tile)
-                can_move = true
+                else if is_tile_moveable(neighbor_tile)
+                    can_move = true
         if !can_move
             die()
 
+fn get_block_coord() Coord
+    return get_coord_from_abs(block_pos)
+
 fn can_move_in_direction(U direction) Bool
-    return is_tile_moveable(tile_at_coord(get_coord_in_direction(get_current_tile(), direction)))
+    Coord target_coord = get_coord_in_direction(get_current_tile(), direction)
+    if (compare_coord(target_coord, get_block_coord()))
+        return can_block_move(direction)
+    else
+        return is_tile_moveable(tile_at_coord(target_coord))
+
+fn get_coord_from_abs(Coord coord) Coord
+    return Coord(coord.x >> 4, coord.y >> 4)
+
+fn can_block_move(U direction) Bool
+    return is_tile_moveable(tile_at_coord(get_coord_in_direction(get_coord_from_abs(block_pos), direction)))
+
+fn check_for_blocks()
+    Coord target = get_coord_in_direction(get_current_tile(), movement_direction)
+    if (compare_coord(target, get_coord_from_abs(block_pos)))
+        block_direction = movement_direction
+        block_timer = 1
 
 fn move_puffle()
     if movement_timer == 0
@@ -392,6 +446,7 @@ fn move_puffle()
             movement_direction = DIRECTION_UP
         if movement_direction != 0
             melt_tile()
+            check_for_blocks()
             movement_timer = 1
             move_puffle_sprite()
     else
@@ -401,6 +456,59 @@ fn move_puffle()
             movement_timer = 0
             check_destination_tile()
 
+fn move_block()
+    if block_timer > 0
+        if block_timer == 7
+            if can_block_move(block_direction)
+                block_timer = 1
+            else
+                block_timer = 0
+                return
+        U movement_amount
+        switch block_timer
+            case 1
+                movement_amount = 3
+                break
+            case 2
+                movement_amount = 2
+                break
+            case 3
+                movement_amount = 3
+                break
+            case 4
+                movement_amount = 2
+                break
+            case 5
+                movement_amount = 3
+                break
+            case 6
+                movement_amount = 3
+                break
+        
+        if block_direction == 1
+            block_pos.y -= movement_amount
+        else if block_direction == 2
+            block_pos.y += movement_amount
+        else if block_direction == 3
+            block_pos.x -= movement_amount
+        else if block_direction == 4
+            block_pos.x += movement_amount
+        block_timer += 1
+        
+
+fn add_sprite(U index, U x, U y, Bool is_left, Bool is_up, U palette, U start_index) U
+    U y_delta = 0
+    U x_delta = 0
+    if !is_up
+        y_delta = 1
+    if !is_left
+        x_delta = 1
+    set_oam_x(index, x + U(x_delta * 8))
+    set_oam_y(index, y + U(y_delta * 8) - 1)
+    set_oam_p(index, U(16 * y_delta) + start_index + (x_delta))
+    set_oam_a(index, palette)
+
+    return index + 4
 
 fn update_sprites()
     U i = 0
@@ -408,24 +516,22 @@ fn update_sprites()
     U k = 0
     U sprite_x
     U sprite_y
+    Bool is_left
+    Bool is_up
     
     for ; k < 2; k += 1
         for j = 0; j < 2; j += 1
+            is_left = j == 0
+            is_up = k == 0
             // the puffle itself
-            sprite_x = U(puffle_x + U(j * 8))
-            sprite_y = U(puffle_y + U(8 * k)) - 1
-            set_oam_x(i, sprite_x)
-            set_oam_y(i, sprite_y)
-            set_oam_p(i, U(16 * k) + 32 + j)
-            set_oam_a(i, 0)
-
-            i += 4
+            i = add_sprite(i, puffle_x, puffle_y, is_left, is_up, 0, 64)
             // the puffle eyes
-            set_oam_x(i, sprite_x)
-            set_oam_y(i, sprite_y)
-            set_oam_p(i, U(16 * k) + 34 + j)
-            set_oam_a(i, 1)
-            i += 4
+            i = add_sprite(i, puffle_x, puffle_y, is_left, is_up, 1, 66)
+            
+            if (block_pos.x != 0)
+                // the block
+                
+                i = add_sprite(i, block_pos.x, block_pos.y, is_left, is_up, 2, 68)
 
     hide_oam(i)
 
@@ -459,25 +565,39 @@ fn get_ppu_attribute(U topleft, U topright, U bottomleft, U bottomright) U
 
 // load the level layout into its editable state
 fn load_level_into_memory()
+    U tile
+    U j
+    block_spawn = Coord(0, 0)
     for U i = 0; i < 15; i += 1
-        for U j = 0; j < 16; j += 1
-            current_level[get_tile_index(j ,i)] = (level_ptr + U(i * 16))[j]
+        for j = 0; j < 16; j += 1
+            tile = (level_ptr + U(i * 16))[j]
+            if tile == 'Z'
+                block_spawn = Coord(j, i)
+                tile = 'A'
+            current_level[get_tile_index(j ,i)] = tile
 
 // write ppu data into background for tile ASSUMING adress is already correct
 // these functions use the tile type (a number) to perform calculations
 // based on where it would be in the bitmap
 fn ppu_write_upper_tile(U type)
-    {PPUDATA}(U(type * 2))
-    {PPUDATA}(U((type * 2) + 1))
+    U quotient = type >> 3
+    U remainder = type & 7
+    U index = U(quotient * 16) + remainder
+    {PPUDATA}(U(index * 2))
+    {PPUDATA}(U((index * 2) + 1))
 
 fn ppu_write_lower_tile(U type)
-    {PPUDATA}(U((type * 2) + 16))
-    {PPUDATA}(U((type * 2) + 17))
+    U quotient = type >> 3
+    U remainder = type & 7
+    U index = U(quotient * 16) + remainder
+    {PPUDATA}(U((index * 2) + 16))
+    {PPUDATA}(U((index * 2) + 17))
 
 fn load_level()
     ppu_reset_addr($2000)
 
     has_key = false
+    block_pos = Coord(U(block_spawn.x * TILE_LENGTH), U(block_spawn.y * TILE_LENGTH))
     U i = 0
     U j = 0
     U type = 0
@@ -557,7 +677,8 @@ mode main()
     $0F, $27, $16,
     // puffle's white areas
     $30, $23, $31,
-    $06, $18, $2A,
+    // same as first block above
+    $31, $21, $02,
     $08, $1A, $2C,
 
     // white
@@ -573,6 +694,7 @@ mode main()
     while true
         update_pads()
         move_puffle()
+        move_block()
         update_sprites()
         nmi
 
