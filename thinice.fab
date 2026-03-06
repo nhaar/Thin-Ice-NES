@@ -182,7 +182,23 @@ data /levels
          "EEEEEEEEEEEEEEEE"
          "EEEEEEEEEEEEEEEE"
          "EEEEEEEEEEEEEEEE")
-    [6] tile_palettes
+    [] level10
+        ("BBBBBBBBBBBBBBBB"
+         "BKAAAAAAAAAAAAAB"
+         "BAFFFFFFFFAAAFAB"
+         "BAAAAAAAAAAAAFAB"
+         "BAAAABBBBBAAAFAB"
+         "BAAAABBABFFAAFAB"
+         "BAAAABBABFFAAAAB"
+         "BAAAAAAAAAAAAAAB"
+         "BAAAAAAAAAAAAAAB"
+         "BAAAABBAAAABBBAB"
+         "BAAAAAAFFFFLABAB"
+         "BAAAABBAAAABDBAB"
+         "BAAFFAAAAAABBBAB"
+         "BAAAAAAAAAAAAAAB"
+         "BBBBBBBBBBBBBBBB")
+    [] tile_palettes
         U(0)
         U(0)
         U(0)
@@ -241,6 +257,8 @@ fn next_level() CCC/levels
             return @level8
         case 9
             return @level9
+        case 10
+            return @level10
 
 
 fn get_current_tile() Coord
