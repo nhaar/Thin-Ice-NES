@@ -9,6 +9,8 @@ vars /game_vars
     TileDelta tile_delta = TileDelta(0, 0, 0)
     U level_number = 1
     Coord spawn_point = Coord(16, 16)
+    Bool has_key = false
+    Coord update_key_tile = Coord(0, 0)
 
 ct U TILE_LENGTH = 16
 ct U MOVEMENT_LENGTH = 8
@@ -30,7 +32,9 @@ struct TileDelta
 // d = goal
 // e = background
 // f = thick ice
-charmap("AECBDF", 0)
+// k = key tile
+// l = lock tile
+charmap("AECBDFKL", 0)
 
 
 data /levels
@@ -185,6 +189,8 @@ data /levels
         U(0)
         U(1)
         U(2)
+        U(3)
+        U(3)
 
 fn move_puffle_sprite()
     if movement_direction == 1
@@ -207,7 +213,7 @@ fn get_coord_in_direction(Coord coord, U direction) Coord
         return Coord(coord.x + 1, coord.y)
 
 fn is_tile_moveable(U tile) Bool
-    if (tile == 'A') || (tile == 'D') || (tile == 'F')
+    if (tile == 'A') || (tile == 'D') || (tile == 'F') || tile == 'K'
         return true
     else
         return false
@@ -244,6 +250,8 @@ fn get_current_tile() Coord
     y >>= 4
     return Coord(x, y)
 
+fn update_tile_in_level(Coord coord, U type)
+    current_level[get_tile_index(coord.x, coord.y)] = type
 
 // melts the tile the puffle is at by one stage
 fn melt_tile()
@@ -258,7 +266,7 @@ fn melt_tile()
     else if (tile == 'F')
         new_tile = 'A'
 
-    current_level[get_tile_index(coords.x, coords.y)] = new_tile
+    update_tile_in_level(coords, new_tile)
     tile_delta = TileDelta(new_tile, coords.x, coords.y)
 
 fn disable_rendering()
@@ -294,10 +302,22 @@ fn check_destination_tile()
     if tile == 'D'
         build_next_level()
     else
-        U neighbor = 0
+        if tile == 'K'
+            has_key = true
+            update_key_tile = coords
+        Coord neighbor
+        U neighbor_tile
         Bool can_move = false
         for U i = 1; i < 5; i += 1
-            if is_tile_moveable(tile_at_coord(get_coord_in_direction(coords, i)))
+            neighbor = get_coord_in_direction(coords, i)
+            neighbor_tile = tile_at_coord(neighbor)
+            if neighbor_tile == 'L'
+                if has_key
+                    can_move = true
+                    update_key_tile = neighbor
+                    break
+
+            else if is_tile_moveable(neighbor_tile)
                 can_move = true
                 break
         if !can_move
@@ -404,6 +424,7 @@ fn ppu_write_lower_tile(U type)
 fn load_level()
     ppu_reset_addr($2000)
 
+    has_key = false
     U i = 0
     U j = 0
     U type = 0
@@ -431,26 +452,32 @@ fn load_level()
 fn get_tile_index(U x, U y) U
     return x + U(y * 16)
 
+fn change_tile_type(U x, U y, U type)
+    UU base_addr = UU(x * 2 + y * 64)
+    U topleft_x
+    U topleft_y
+    ppu_reset_addr($2000 + base_addr)
+    ppu_write_upper_tile(type)
+    ppu_reset_addr($2000 + base_addr + 32)
+    ppu_write_lower_tile(type)
+    
+    // if coordinate is odd, then it's right or bottom in the 2x2 block
+    topleft_x = x - (x & 1)
+    topleft_y = y - (y & 1)
+    ppu_reset_addr($23C0 + UU(topleft_x >> 1) + UU((topleft_y >> 1) * 8))
+    {PPUDATA}(get_tile_block_palette(topleft_x, topleft_y))
+
 nmi main_nmi()
     if ready
         // check y because a tile will never be melted on the first row
         // as opposed to type and x which may be 0
         if tile_delta.y != 0
-            UU base_addr = UU(tile_delta.x * 2 +  tile_delta.y * 64)
-            U topleft_x
-            U topleft_y
-            ppu_reset_addr($2000 + base_addr)
-            ppu_write_upper_tile(tile_delta.type)
-            ppu_reset_addr($2000 + base_addr + 32)
-            ppu_write_lower_tile(tile_delta.type)
-            
-            // if coordinate is odd, then it's right or bottom in the 2x2 block
-            topleft_x = tile_delta.x - (tile_delta.x & 1)
-            topleft_y = tile_delta.y - (tile_delta.y & 1)
-            ppu_reset_addr($23C0 + UU(topleft_x >> 1) + UU((topleft_y >> 1) * 8))
-            {PPUDATA}(get_tile_block_palette(topleft_x, topleft_y))
-
+            change_tile_type(tile_delta.x, tile_delta.y, tile_delta.type)
             tile_delta = TileDelta(0, 0, 0)
+        if update_key_tile.x != 0
+            update_tile_in_level(update_key_tile, 'A')
+            change_tile_type(update_key_tile.x, update_key_tile.y, 'A')
+            update_key_tile = Coord(0, 0)
 
     ppu_upload_oam_poll_pads(0)
     {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
@@ -470,7 +497,8 @@ mode main()
 
     // thick ice
     $10, $00, $00,
-    $17, $25, $33,
+    // key blocks
+    $17, $27, $3F,
 
     // puffle
     $0F, $27, $16,
