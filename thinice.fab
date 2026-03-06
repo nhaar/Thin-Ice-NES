@@ -319,7 +319,6 @@ fn check_destination_tile()
 
             else if is_tile_moveable(neighbor_tile)
                 can_move = true
-                break
         if !can_move
             die()
 
