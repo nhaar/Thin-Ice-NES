@@ -30,7 +30,7 @@ struct TileDelta
 // d = goal
 // e = background
 // f = thick ice
-charmap("AECBD", 0)
+charmap("AECBDF", 0)
 
 
 data /levels
@@ -130,12 +130,13 @@ data /levels
          "EEBBBBBBBBBBBBBB"
          "EEEEEEEEEEEEEEEE"
          "EEEEEEEEEEEEEEEE")
-    [5] tile_palettes
+    [6] tile_palettes
         U(0)
         U(0)
         U(0)
         U(0)
         U(1)
+        U(2)
 
 fn move_puffle_sprite()
     if movement_direction == 1
@@ -158,7 +159,7 @@ fn get_coord_in_direction(Coord coord, U direction) Coord
         return Coord(coord.x + 1, coord.y)
 
 fn is_tile_moveable(U tile) Bool
-    if (tile == 'A') || (tile == 'D')
+    if (tile == 'A') || (tile == 'D') || (tile == 'F')
         return true
     else
         return false
@@ -199,6 +200,9 @@ fn melt_tile()
     // ice -> water
     if (tile == 'A')
         new_tile = 'C'
+    // thick -> ice
+    else if (tile == 'F')
+        new_tile = 'A'
 
     current_level[get_tile_index(coords.x, coords.y)] = new_tile
     tile_delta = TileDelta(new_tile, coords.x, coords.y)
@@ -309,6 +313,15 @@ fn tile_at_abs(U x, U y) U
     y >>= 4
     return tile_at(x, y)
 
+// taken the x,y coordinates of the topleftmost tile of a 2x2 block, get the PPU attribute for that byte
+fn get_tile_block_palette(U topleft_x, U top_left_y) U
+    return get_ppu_attribute(
+        palette_from_tile_at(topleft_x, top_left_y),
+        palette_from_tile_at(topleft_x + 1, top_left_y),
+        palette_from_tile_at(topleft_x, top_left_y + 1),
+        palette_from_tile_at(topleft_x + 1, top_left_y + 1) 
+    )
+
 // returns which background color palette is used at the given board tile
 fn palette_from_tile_at(U x, U y) U
     return (@tile_palettes) [tile_at(x, y)]
@@ -324,6 +337,8 @@ fn load_level_into_memory()
             current_level[get_tile_index(j ,i)] = (level_ptr + U(i * 16))[j]
 
 // write ppu data into background for tile ASSUMING adress is already correct
+// these functions use the tile type (a number) to perform calculations
+// based on where it would be in the bitmap
 fn ppu_write_upper_tile(U type)
     {PPUDATA}(U(type * 2))
     {PPUDATA}(U((type * 2) + 1))
@@ -349,12 +364,7 @@ fn load_level()
 
     for i = 0; i < 15; i += 2
         for j = 0; j < 16; j += 2
-            {PPUDATA}(get_ppu_attribute(
-               palette_from_tile_at(j, i),
-               palette_from_tile_at(j + 1, i),
-               palette_from_tile_at(j, i + 1),
-               palette_from_tile_at(j + 1, i + 1) 
-            ))
+            {PPUDATA}(get_tile_block_palette(j, i))
             
     for j = 0; j < 16; j += 2
         {PPUDATA}(get_ppu_attribute(
@@ -369,12 +379,23 @@ fn get_tile_index(U x, U y) U
 
 nmi main_nmi()
     if ready
-        if tile_delta.type != 0
+        // check y because a tile will never be melted on the first row
+        // as opposed to type and x which may be 0
+        if tile_delta.y != 0
             UU base_addr = UU(tile_delta.x * 2 +  tile_delta.y * 64)
+            U topleft_x
+            U topleft_y
             ppu_reset_addr($2000 + base_addr)
             ppu_write_upper_tile(tile_delta.type)
             ppu_reset_addr($2000 + base_addr + 32)
             ppu_write_lower_tile(tile_delta.type)
+            
+            // if coordinate is odd, then it's right or bottom in the 2x2 block
+            topleft_x = tile_delta.x - (tile_delta.x & 1)
+            topleft_y = tile_delta.y - (tile_delta.y & 1)
+            ppu_reset_addr($23C0 + UU(topleft_x >> 1) + UU((topleft_y >> 1) * 8))
+            {PPUDATA}(get_tile_block_palette(topleft_x, topleft_y))
+
             tile_delta = TileDelta(0, 0, 0)
 
     ppu_upload_oam_poll_pads(0)
@@ -393,8 +414,8 @@ mode main()
     // dark red, light red, unused
     $06, $26, $02,
 
-    // unused
-    $30, $23, $31,
+    // thick ice
+    $10, $00, $00,
     $17, $25, $33,
 
     // puffle
