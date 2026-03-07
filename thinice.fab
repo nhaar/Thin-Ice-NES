@@ -19,6 +19,10 @@ vars /game_vars
 
     Coord key_pos = Coord(0, 0)
 
+    Coord teleporter1 = Coord(0, 0)
+    Coord teleporter2 = Coord(0, 0)
+    Bool has_teleported = false
+
 ct U TILE_LENGTH = 16
 ct U MOVEMENT_LENGTH = 8
 ct U MOVEMENT_CONSTANT = TILE_LENGTH / MOVEMENT_LENGTH
@@ -306,6 +310,22 @@ data /levels
          "BAAAAABAAAABBBFB"
          "BBBBAABHBAFFFFWB"
          "BBBBBBBBBBBBBBBB")
+    [] level17
+        ("BBBBBBBBBBBBBBBB"
+         "BBBBBHBAAABKBAAB"
+         "BBBBAAAABABFAAAB"
+         "BBBBAABBBFAAABAB"
+         "BBBBAABAFABAABAB"
+         "BBDBAABBAFAFABAB"
+         "BAABAABAFAAABBAB"
+         "BLBBAABBAFABBAAB"
+         "BABAAABAAFBBAFAB"
+         "BABAAABAAABBAAAB"
+         "BABAAABBBBBBBBAB"
+         "BATAZAAAAAAAABAB"
+         "BAAAAAAAAAABBBAB"
+         "BAAAAAATAAAAAAAB"
+         "BBBBBBBBBBBBBBBB")
     [] tile_palettes
         U(0)
         U(0)
@@ -314,6 +334,7 @@ data /levels
         U(1)
         U(2)
         U(3)
+        U(0)
         U(0)
 
 fn move_puffle_sprite()
@@ -337,7 +358,7 @@ fn get_coord_in_direction(Coord coord, U direction) Coord
         return Coord(coord.x + 1, coord.y)
 
 fn is_tile_moveable(U tile) Bool
-    if (tile == 'A') || (tile == 'D') || (tile == 'F') || tile == 'H'
+    if (tile == 'A') || (tile == 'D') || (tile == 'F') || tile == 'H' || tile == 'T'
         return true
     else
         return false
@@ -399,7 +420,7 @@ fn melt_tile()
     Coord coords = get_current_tile()
     U tile = tile_at(coords.x, coords.y)
 
-    if tile != 'H'
+    if tile != 'H' && tile != 'T'
         U new_tile = 0
         // ice -> water
         if (tile == 'A')
@@ -443,8 +464,16 @@ fn check_destination_tile()
     Coord block_coord = get_block_coord()
     U tile = tile_at(coords.x, coords.y)
     if tile == 'D'
-        build_next_level()
+        build_next_level()        
     else
+        if !has_teleported && tile == 'T'
+            if compare_coord(teleporter1, coords)
+                coords = teleporter2
+            else
+                coords = teleporter1
+            puffle_x = U(coords.x * TILE_LENGTH)
+            puffle_y = U(coords.y * TILE_LENGTH)
+            has_teleported = true
         if compare_coord(coords, key_pos)
             has_key = true
             key_pos = Coord(0, 0)
@@ -632,6 +661,8 @@ fn load_level_into_memory()
     U j
     block_spawn = Coord(0, 0)
     key_pos = Coord(0, 0)
+    teleporter1 = Coord(0, 0)
+    teleporter2 = Coord(0, 0)
     for U i = 0; i < 15; i += 1
         for j = 0; j < 16; j += 1
             tile = (level_ptr + U(i * 16))[j]
@@ -649,6 +680,11 @@ fn load_level_into_memory()
                     tile = 'H'
                 else
                     tile = 'F'
+            else if tile == 'T'
+                if teleporter1.x == 0
+                    teleporter1 = Coord(j, i)
+                else
+                    teleporter2 = Coord(j, i)
             current_level[get_tile_index(j ,i)] = tile
 
 // write ppu data into background for tile ASSUMING adress is already correct
@@ -673,6 +709,7 @@ fn load_level()
 
     has_key = false
     block_pos = Coord(U(block_spawn.x * TILE_LENGTH), U(block_spawn.y * TILE_LENGTH))
+    has_teleported = false
     U i = 0
     U j = 0
     U type = 0
