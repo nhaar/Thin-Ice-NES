@@ -43,9 +43,10 @@ struct TileDelta
 // l = lock tile
 // h = hole
 // q = hole with key
+// w = thick ice with key
 // z = block spawn tile
 // x = block spawn but with thick ice
-charmap("AECBDFLHKQZX", 0)
+charmap("AECBDFLHKQWZX", 0)
 
 
 data /levels
@@ -289,6 +290,22 @@ data /levels
          "BBBABABAAAAAAAAB"
          "BBBBBAAAAAAAAAAB"
          "BBBBBBBBBBBBBBBB")
+    [] level16
+        ("BBBBBBBBBBBBBBBB"
+         "BAAFABBAAABAAAAB"
+         "BABAAAAAAFAFAAAB"
+         "BAAAAAAABBAABBBB"
+         "BBBABAAABBAAAAAB"
+         "BBAABABABBAZAABB"
+         "BBAAAFAFAAAAAABB"
+         "BBAABABABAAAAAAB"
+         "BBAAAFAFAAAAAAAB"
+         "BAAABABABBBBBBBB"
+         "BFAFAFAFABAAAAFB"
+         "BFAAAFAFABLBDBFB"
+         "BAAAAABAAAABBBFB"
+         "BBBBAABHBAFFFFWB"
+         "BBBBBBBBBBBBBBBB")
     [] tile_palettes
         U(0)
         U(0)
@@ -359,6 +376,12 @@ fn next_level() CCC/levels
             return @level12
         case 13
             return @level13
+        case 14
+            return @level14
+        case 15
+            return @level15
+        case 16
+            return @level16
 
 
 fn get_current_tile() Coord
@@ -617,12 +640,14 @@ fn load_level_into_memory()
                     tile = 'A'
                 else
                     tile = 'F'
-            else if tile == 'K' || tile == 'Q'
+            else if tile == 'K' || tile == 'Q' || tile == 'W'
                 key_pos = Coord(j, i)
                 if tile == 'K'
                     tile = 'A'
-                else
+                else if tile == 'Q'
                     tile = 'H'
+                else
+                    tile = 'F'
             current_level[get_tile_index(j ,i)] = tile
 
 // write ppu data into background for tile ASSUMING adress is already correct
