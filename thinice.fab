@@ -487,10 +487,11 @@ fn can_block_move(U direction) Bool
     return is_tile_moveable(tile_at_coord(get_coord_in_direction(get_coord_from_abs(block_pos), direction)))
 
 fn check_for_blocks()
-    Coord target = get_coord_in_direction(get_current_tile(), movement_direction)
-    if (compare_coord(target, get_coord_from_abs(block_pos)))
-        block_direction = movement_direction
-        block_timer = 1
+    if block_timer == 0
+        Coord target = get_coord_in_direction(get_current_tile(), movement_direction)
+        if (compare_coord(target, get_coord_from_abs(block_pos)))
+            block_direction = movement_direction
+            block_timer = 1
 
 fn move_puffle()
     if movement_timer == 0
