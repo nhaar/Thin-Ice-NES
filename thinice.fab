@@ -17,6 +17,8 @@ vars /game_vars
     Coord block_spawn = Coord(0, 0)
     Coord block_pos = Coord(0, 0)
 
+    Coord key_pos = Coord(0, 0)
+
 ct U TILE_LENGTH = 16
 ct U MOVEMENT_LENGTH = 8
 ct U MOVEMENT_CONSTANT = TILE_LENGTH / MOVEMENT_LENGTH
@@ -40,8 +42,10 @@ struct TileDelta
 // k = key tile
 // l = lock tile
 // h = hole
+// q = hole with key
 // z = block spawn tile
-charmap("AECBDFKLHZ", 0)
+// x = block spawn but with thick ice
+charmap("AECBDFLHKQZX", 0)
 
 
 data /levels
@@ -253,6 +257,38 @@ data /levels
          "BAABBBBBBAAAAAAB"
          "BKABEEEEBBBBBBBB"
          "BBBBEEEEEEEEEEEE")
+    [] level14
+        ("BBBBEEEBBBBEEEEE"
+         "BAABEEEBAABBBEEE"
+         "BAABBBEBAAAABEEE"
+         "BAAAABBBAAAABBEE"
+         "BABAFAABAAAFABBE"
+         "BABAABABBAAAFABE"
+         "BABAAAFAAAAAABBB"
+         "BABAAFAAAAAAAAKB"
+         "BABABXBBBABAAAAB"
+         "BABAAFAABFAAABBB"
+         "BABBBBBABAAAFABE"
+         "BABBBAAABAAFABBE"
+         "BALDBAAABAAABBEE"
+         "BHBBBAAABBAABEEE"
+         "BBBEBBBBBBBBBEEE")
+    [] level15
+        ("BBBBBBBBBBBBBBBB"
+         "BAAAAAABFFBFFAAB"
+         "BAAAAAAAFFFFABAB"
+         "BAAAAAAAFFFFABLB"
+         "BAAAAAAAFFFFABDB"
+         "BAAAFFFAFAAAABBB"
+         "BAFAFAFFFAAAAAAB"
+         "BAFAFAAAAAAAAAAB"
+         "BBFXAAAAAAFAAAAB"
+         "BQFFAAAAAAAAAAAB"
+         "BAAAAAAAAAAABBBB"
+         "BAAAAAAAAAAABBBB"
+         "BBBABABAAAAAAAAB"
+         "BBBBBAAAAAAAAAAB"
+         "BBBBBBBBBBBBBBBB")
     [] tile_palettes
         U(0)
         U(0)
@@ -260,7 +296,6 @@ data /levels
         U(0)
         U(1)
         U(2)
-        U(3)
         U(3)
         U(0)
 
@@ -285,7 +320,7 @@ fn get_coord_in_direction(Coord coord, U direction) Coord
         return Coord(coord.x + 1, coord.y)
 
 fn is_tile_moveable(U tile) Bool
-    if (tile == 'A') || (tile == 'D') || (tile == 'F') || tile == 'K' || tile == 'H'
+    if (tile == 'A') || (tile == 'D') || (tile == 'F') || tile == 'H'
         return true
     else
         return false
@@ -340,17 +375,18 @@ fn update_tile_in_level(Coord coord, U type)
 fn melt_tile()
     Coord coords = get_current_tile()
     U tile = tile_at(coords.x, coords.y)
-    U new_tile = 0
 
-    // ice -> water
-    if (tile == 'A')
-        new_tile = 'C'
-    // thick -> ice
-    else if (tile == 'F')
-        new_tile = 'A'
+    if tile != 'H'
+        U new_tile = 0
+        // ice -> water
+        if (tile == 'A')
+            new_tile = 'C'
+        // thick -> ice
+        else if (tile == 'F')
+            new_tile = 'A'
 
-    update_tile_in_level(coords, new_tile)
-    tile_delta = TileDelta(new_tile, coords.x, coords.y)
+        update_tile_in_level(coords, new_tile)
+        tile_delta = TileDelta(new_tile, coords.x, coords.y)
 
 fn disable_rendering()
     {PPUMASK}(0)
@@ -386,9 +422,9 @@ fn check_destination_tile()
     if tile == 'D'
         build_next_level()
     else
-        if tile == 'K'
+        if compare_coord(coords, key_pos)
             has_key = true
-            update_key_tile = coords
+            key_pos = Coord(0, 0)
         Coord neighbor
         U neighbor_tile
         Bool can_move = false
@@ -532,6 +568,9 @@ fn update_sprites()
                 // the block
                 
                 i = add_sprite(i, block_pos.x, block_pos.y, is_left, is_up, 2, 68)
+            
+            if (key_pos.x != 0)
+                i = add_sprite(i, U(key_pos.x * TILE_LENGTH), U(key_pos.y * TILE_LENGTH), is_left, is_up, 3, 70)
 
     hide_oam(i)
 
@@ -568,12 +607,22 @@ fn load_level_into_memory()
     U tile
     U j
     block_spawn = Coord(0, 0)
+    key_pos = Coord(0, 0)
     for U i = 0; i < 15; i += 1
         for j = 0; j < 16; j += 1
             tile = (level_ptr + U(i * 16))[j]
-            if tile == 'Z'
+            if tile == 'Z' || tile == 'X'
                 block_spawn = Coord(j, i)
-                tile = 'A'
+                if tile == 'Z'
+                    tile = 'A'
+                else
+                    tile = 'F'
+            else if tile == 'K' || tile == 'Q'
+                key_pos = Coord(j, i)
+                if tile == 'K'
+                    tile = 'A'
+                else
+                    tile = 'H'
             current_level[get_tile_index(j ,i)] = tile
 
 // write ppu data into background for tile ASSUMING adress is already correct
@@ -679,7 +728,8 @@ mode main()
     $30, $23, $31,
     // same as first block above
     $31, $21, $02,
-    $08, $1A, $2C,
+    // same as key block
+    $17, $27, $3F,
 
     // white
     $30)
