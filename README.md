@@ -1,15 +1,16 @@
-A demake of Thin ice from Club Penguin for the NES. It's written in [NESFab](https://pubby.games/nesfab.html).
+A port / demake of Thin ice from Club Penguin for the NES. It's written in [NESFab](https://pubby.games/nesfab.html).
 
 # Limitations
 
 Thin Ice uses a 19x15 grid to represent levels, but the NES can only represent 16x15 grids. To account for this, many of the levels were slightly changed, such that the overall rhythm
 of the gameplay is the same, but so that it can fit on a 16x15 grid. From what I researched, you can still have the original 19x15 levels if you were to implemente scrolling, but I think
 that it would make for an inferior experience, and the 16x15 minified levels is an interesting alternative to the original game, as a way of imagining how the game maybe
-would have been made if it were for the NES. Another possible solution would be having each tile be half its size, because then you could fit 19x15 as there are 32x30 tiles.
+would have been made if it were made for the NES. Another possible solution would be having each tile be half its size, because then you could fit 19x15 as there are 32x30 tiles.
 This has two issues, the game would be only occupying a fraction of the screen, and it would look ugly as well as having less resolution, and it also would not allow for each tile
 having its own color palette, as color palettes are assigned on a 2x2 tile basis for the NES.
 
-Thin Ice also has too many animations, mostly the water animation, which can lead to there being >200 tiles animating each frame. As far as I have studied, this is
+Thin Ice also has too many animations, mostly the water animation, which can lead to there being >200 tiles animating each frame. As far as I have studied, this is far above
+the NES capabilities. I have also found issues with changing too many of the tiles at once, such as the level 19 switch, which I added an animation.
 
 # Building
 
