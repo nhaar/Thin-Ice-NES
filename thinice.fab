@@ -50,7 +50,7 @@ struct TileDelta
 // w = thick ice with key
 // z = block spawn tile
 // x = block spawn but with thick ice
-charmap("AECBDFLHKQWZX", 0)
+charmap("AECBDFLHTKQWZX", 0)
 
 
 data /levels
@@ -326,6 +326,22 @@ data /levels
          "BAAAAAAAAAABBBAB"
          "BAAAAAATAAAAAAAB"
          "BBBBBBBBBBBBBBBB")
+    [] level18
+        ("BBBBBBBBBBBBBBBB"
+         "BBKAAAAAAAAAAAAB"
+         "BHAAAAAAAAAATAAB"
+         "BBBBAAAFAAAAAAAB"
+         "BBBBABTFAAAAABAB"
+         "BBAAABAFAAAAAAAB"
+         "BBBBBBAAAAAABAAB"
+         "BBBDABAAAAAABAAB"
+         "BBBBLBAAAAAAAAAB"
+         "BBBBFFAAABAAABAB"
+         "BAAAFAAAABAAAZAB"
+         "BABBFBAAAAAAAAAB"
+         "BABBFAAAAAAAABAB"
+         "BAAAABBAABBBAAAB"
+         "BBBBBBBBBBBBBBBB")
     [] tile_palettes
         U(0)
         U(0)
@@ -548,6 +564,13 @@ fn move_puffle()
 fn move_block()
     if block_timer > 0
         if block_timer == 7
+            Coord block_coord = get_block_coord()
+            if !has_teleported && (tile_at(block_coord.x, block_coord.y) == 'T')
+                if compare_coord(teleporter1, block_coord)
+                    block_coord = teleporter2
+                else
+                    block_coord = teleporter1
+                block_pos = Coord(U(block_coord.x * TILE_LENGTH), U(block_coord.y * TILE_LENGTH))
             if can_block_move(block_direction)
                 block_timer = 1
             else
