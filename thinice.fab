@@ -22,6 +22,9 @@ vars /game_vars
     Coord teleporter1 = Coord(0, 0)
     Coord teleporter2 = Coord(0, 0)
     Bool has_teleported = false
+    U hidden_path_timer = 0
+    U hidden_path_stage = 0
+    Bool is_puffle_frozen = false
 
 ct U TILE_LENGTH = 16
 ct U MOVEMENT_LENGTH = 8
@@ -46,11 +49,13 @@ struct TileDelta
 // k = key tile
 // l = lock tile
 // h = hole
+// s = level 19 switch
+// j = fake wall
 // q = hole with key
 // w = thick ice with key
 // z = block spawn tile
 // x = block spawn but with thick ice
-charmap("AECBDFLHTKQWZX", 0)
+charmap("ADFHSJTCBLEKQWZX", 0)
 
 
 data /levels
@@ -342,15 +347,33 @@ data /levels
          "BABBFAAAAAAAABAB"
          "BAAAABBAABBBAAAB"
          "BBBBBBBBBBBBBBBB")
+    [] level19
+        ("BBBBBBBBBBBBBBBB"
+         "BDBBAAAAAABBBBBB"
+         "BAAAABAAAAJJJJBB"
+         "BBBAAHAAAABBBJJB"
+         "BAAAAAAAAABJJJBB"
+         "BABBAAAAAABJBBBB"
+         "BABBAAAAAABJBBBB"
+         "BLBAAAATAZBJJJJB"
+         "BABBAAAFAABJBBJB"
+         "BABAAABABABBJJJB"
+         "BFAFBABAAABBBJBB"
+         "BABFBABAAAABBJJB"
+         "BAAFBTBAAAFFKBJB"
+         "BAAABBBAABBBBBSB"
+         "BBBBBBBBBBBBBBBB")
     [] tile_palettes
-        U(0)
-        U(0)
-        U(0)
         U(0)
         U(1)
         U(2)
-        U(3)
         U(0)
+        U(0)
+        U(0)
+        U(0)
+        U(0)
+        U(0)
+        U(3)
         U(0)
 
 fn move_puffle_sprite()
@@ -374,7 +397,7 @@ fn get_coord_in_direction(Coord coord, U direction) Coord
         return Coord(coord.x + 1, coord.y)
 
 fn is_tile_moveable(U tile) Bool
-    if (tile == 'A') || (tile == 'D') || (tile == 'F') || tile == 'H' || tile == 'T'
+    if tile < 'C'
         return true
     else
         return false
@@ -419,6 +442,12 @@ fn next_level() CCC/levels
             return @level15
         case 16
             return @level16
+        case 17
+            return @level17
+        case 18
+            return @level18
+        case 19
+            return @level19
 
 
 fn get_current_tile() Coord
@@ -436,7 +465,7 @@ fn melt_tile()
     Coord coords = get_current_tile()
     U tile = tile_at(coords.x, coords.y)
 
-    if tile != 'H' && tile != 'T'
+    if tile != 'H' && tile != 'T' && tile != 'S' && tile != 'J'
         U new_tile = 0
         // ice -> water
         if (tile == 'A')
@@ -482,6 +511,9 @@ fn check_destination_tile()
     if tile == 'D'
         build_next_level()        
     else
+        if tile == 'S'
+            is_puffle_frozen = true
+            hidden_path_stage = 1
         if !has_teleported && tile == 'T'
             if compare_coord(teleporter1, coords)
                 coords = teleporter2
@@ -539,6 +571,8 @@ fn check_for_blocks()
             block_timer = 1
 
 fn move_puffle()
+    if is_puffle_frozen
+        return
     if movement_timer == 0
         movement_direction = 0
         if ((pads[0].held & BUTTON_LEFT) && can_move_in_direction(DIRECTION_LEFT))
@@ -686,6 +720,8 @@ fn load_level_into_memory()
     key_pos = Coord(0, 0)
     teleporter1 = Coord(0, 0)
     teleporter2 = Coord(0, 0)
+    hidden_path_stage = 0
+    hidden_path_timer = 0
     for U i = 0; i < 15; i += 1
         for j = 0; j < 16; j += 1
             tile = (level_ptr + U(i * 16))[j]
@@ -775,6 +811,36 @@ fn change_tile_type(U x, U y, U type)
     ppu_reset_addr($23C0 + UU(topleft_x >> 1) + UU((topleft_y >> 1) * 8))
     {PPUDATA}(get_tile_block_palette(topleft_x, topleft_y))
 
+fn change_tile_and_update(U x, U y, U type)
+    change_tile_type(x, y, type)
+    update_tile_in_level(Coord(x, y), type)
+
+fn advance_hidden_area_animation()
+    if hidden_path_timer == 0
+        if hidden_path_stage == 1
+            change_tile_and_update(14, 12, 'A')
+        else if hidden_path_stage == 2
+            change_tile_and_update(14, 11, 'A')
+        else if hidden_path_stage == 3
+            change_tile_and_update(14, 10, 'A')
+        else if hidden_path_stage == 4
+            change_tile_and_update(13, 10, 'A')
+        else if hidden_path_stage == 5
+            change_tile_and_update(12, 10, 'A')
+        else if hidden_path_stage == 42
+            change_tile_and_update(10, 3, 'A')
+        else if hidden_path_stage < 42
+            U animation_step = hidden_path_stage - 6
+            U animation_tile = animation_step & 3
+            change_tile_and_update(14 - animation_tile, 9 - (animation_step >> 2), 'A')
+    hidden_path_timer += 1
+    if hidden_path_timer == 2
+        hidden_path_stage += 1
+        hidden_path_timer = 0
+        if hidden_path_stage == 44
+            hidden_path_stage = 0
+            is_puffle_frozen = false
+
 nmi main_nmi()
     if ready
         // check y because a tile will never be melted on the first row
@@ -786,6 +852,8 @@ nmi main_nmi()
             update_tile_in_level(update_key_tile, 'A')
             change_tile_type(update_key_tile.x, update_key_tile.y, 'A')
             update_key_tile = Coord(0, 0)
+        if hidden_path_stage > 0
+            advance_hidden_area_animation()
 
     ppu_upload_oam_poll_pads(0)
     {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
