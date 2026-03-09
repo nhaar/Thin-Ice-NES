@@ -21,8 +21,9 @@ vars /game_vars
 
     Coord key_pos = Coord(0, 0)
 
-    Coord teleporter1 = Coord(0, 0)
-    Coord teleporter2 = Coord(0, 0)
+    Teleporter teleporter1 = Teleporter(Coord(0, 0), 0)
+    Teleporter teleporter2 = Teleporter(Coord(0, 0), 0)
+
     Bool has_teleported = false
     U hidden_path_timer = 0
     U hidden_path_stage = 0
@@ -39,11 +40,6 @@ ct U DIRECTION_UP = 1
 ct U DIRECTION_DOWN = 2
 ct U DIRECTION_LEFT = 3
 ct U DIRECTION_RIGHT = 4
-
-struct TileDelta
-    U type
-    U x
-    U y
 
 // a = ice
 // b = wall
@@ -411,6 +407,10 @@ struct Coord
     U x
     U y
 
+struct Teleporter
+    Coord pos
+    U timer
+
 fn compare_coord(Coord a, Coord b) Bool
     return (a.x == b.x) && (a.y == b.y)
 
@@ -518,10 +518,10 @@ fn check_destination_tile()
         if tile == 'S'
             hidden_path_stage = 1
         if !has_teleported && tile == 'T'
-            if compare_coord(teleporter1, coords)
-                coords = teleporter2
+            if compare_coord(teleporter1.pos, coords)
+                coords = teleporter2.pos
             else
-                coords = teleporter1
+                coords = teleporter1.pos
             puffle_x = U(coords.x * TILE_LENGTH)
             puffle_y = U(coords.y * TILE_LENGTH)
             has_teleported = true
@@ -601,10 +601,10 @@ fn move_block()
         if block_timer == 7
             Coord block_coord = get_block_coord()
             if !has_teleported && (tile_at(block_coord.x, block_coord.y) == 'T')
-                if compare_coord(teleporter1, block_coord)
-                    block_coord = teleporter2
+                if compare_coord(teleporter1.pos, block_coord)
+                    block_coord = teleporter2.pos
                 else
-                    block_coord = teleporter1
+                    block_coord = teleporter1.pos
                 block_pos = Coord(U(block_coord.x * TILE_LENGTH), U(block_coord.y * TILE_LENGTH))
             if can_block_move(block_direction)
                 block_timer = 1
@@ -657,6 +657,12 @@ fn add_sprite(U index, U x, U y, Bool is_left, Bool is_up, U palette, U start_in
 
     return index + 4
 
+ct U TP_TIMER_POWER = 3
+ct U TP_TIMER_LENGTH = 32
+
+fn add_teleporter_sprite(U index, Teleporter tp, Bool is_left, Bool is_up) U
+    return add_sprite(index, U(tp.pos.x * TILE_LENGTH), U(tp.pos.y * TILE_LENGTH), is_left, is_up, 1, 72 + U((tp.timer >> TP_TIMER_POWER) * 2))
+
 fn update_sprites()
     U i = 0
     U j = 0
@@ -682,6 +688,16 @@ fn update_sprites()
             
             if (key_pos.x != 0)
                 i = add_sprite(i, U(key_pos.x * TILE_LENGTH), U(key_pos.y * TILE_LENGTH), is_left, is_up, 3, 70)
+            if (teleporter1.pos.x != 0 && !has_teleported)
+                U spr = 72 + U((teleporter1.timer >> TP_TIMER_POWER) * 2)
+                i = add_teleporter_sprite(i, teleporter1, is_left, is_up)
+                i = add_teleporter_sprite(i, teleporter2, is_left, is_up)
+    teleporter1.timer += 1
+    if teleporter1.timer == TP_TIMER_LENGTH
+        teleporter1.timer = 0
+    teleporter2.timer += 1
+    if teleporter2.timer == TP_TIMER_LENGTH
+        teleporter2.timer = 0
 
     hide_oam(i)
 
@@ -719,8 +735,8 @@ fn load_level_into_memory()
     U j
     block_spawn = Coord(0, 0)
     key_pos = Coord(0, 0)
-    teleporter1 = Coord(0, 0)
-    teleporter2 = Coord(0, 0)
+    teleporter1 = Teleporter(Coord(0, 0), 0)
+    teleporter2 = Teleporter(Coord(0, 0), 0)
     hidden_path_stage = 0
     hidden_path_timer = 0
     for U i = 0; i < 15; i += 1
@@ -741,10 +757,10 @@ fn load_level_into_memory()
                 else
                     tile = 'F'
             else if tile == 'T'
-                if teleporter1.x == 0
-                    teleporter1 = Coord(j, i)
+                if teleporter1.pos.x == 0
+                    teleporter1.pos = Coord(j, i)
                 else
-                    teleporter2 = Coord(j, i)
+                    teleporter2.pos = Coord(j, i)
             current_level[get_tile_index(j ,i)] = tile
 
 // write ppu data into background for tile ASSUMING adress is already correct
@@ -888,7 +904,7 @@ mode main()
     // puffle
     $0F, $27, $16,
     // puffle's white areas
-    $30, $23, $31,
+    $30, $2A, $1A,
     // same as first block above
     $31, $21, $02,
     // same as key block
