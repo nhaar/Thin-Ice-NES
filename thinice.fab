@@ -6,11 +6,13 @@ vars /game_vars
     U movement_timer = 0
     U movement_direction = 0
     U[240] current_level
-    TileDelta tile_delta = TileDelta(0, 0, 0)
+
+    U buffer_index = 0
+    PPUBuffer[10] buffers
+
     U level_number = 1
     Coord spawn_point = Coord(16, 16)
     Bool has_key = false
-    Coord update_key_tile = Coord(0, 0)
 
     U block_timer = 0
     U block_direction = 0
@@ -25,6 +27,10 @@ vars /game_vars
     U hidden_path_timer = 0
     U hidden_path_stage = 0
     Bool is_puffle_frozen = false
+
+struct PPUBuffer
+    UU adress
+    U value
 
 ct U TILE_LENGTH = 16
 ct U MOVEMENT_LENGTH = 8
@@ -474,8 +480,7 @@ fn melt_tile()
         else if (tile == 'F')
             new_tile = 'A'
 
-        update_tile_in_level(coords, new_tile)
-        tile_delta = TileDelta(new_tile, coords.x, coords.y)
+        change_tile_and_update(coords.x, coords.y, new_tile)
 
 fn disable_rendering()
     {PPUMASK}(0)
@@ -539,7 +544,7 @@ fn check_destination_tile()
                 if neighbor_tile == 'L'
                     if has_key
                         can_move = true
-                        update_key_tile = neighbor
+                        change_tile_and_update(neighbor.x, neighbor.y, 'A')
                         break
 
                 else if is_tile_moveable(neighbor_tile)
@@ -796,26 +801,33 @@ fn load_level()
 fn get_tile_index(U x, U y) U
     return x + U(y * 16)
 
-fn change_tile_type(U x, U y, U type)
-    UU base_addr = UU(x * 2 + y * 64)
-    U topleft_x
-    U topleft_y
-    ppu_reset_addr($2000 + base_addr)
-    ppu_write_upper_tile(type)
-    ppu_reset_addr($2000 + base_addr + 32)
-    ppu_write_lower_tile(type)
-    
-    // if coordinate is odd, then it's right or bottom in the 2x2 block
-    topleft_x = x - (x & 1)
-    topleft_y = y - (y & 1)
-    ppu_reset_addr($23C0 + UU(topleft_x >> 1) + UU((topleft_y >> 1) * 8))
-    {PPUDATA}(get_tile_block_palette(topleft_x, topleft_y))
+fn add_tile_change_buffer(U x, U y, U type)
+    UU base_addr = $2000 + UU(x * 2 + y * 64)
+
+    U quotient = type >> 3
+    U remainder = type & 7
+    U index = U(quotient * 16) + remainder
+    U topleft_x = x - (x & 1)
+    U topleft_y = y - (y & 1)
+
+    buffers[buffer_index] = PPUBuffer(base_addr, U(index * 2))
+    buffers[buffer_index + 1] = PPUBuffer(0, U(index * 2) + 1)
+    buffers[buffer_index + 2] = PPUBuffer(base_addr + 32, U((index * 2) + 16))
+    buffers[buffer_index + 3] = PPUBuffer(0, U((index * 2) + 17))
+
+    buffers[buffer_index + 4] = PPUBuffer(
+        $23C0 + UU(topleft_x >> 1) + UU((topleft_y >> 1) * 8),
+        get_tile_block_palette(topleft_x, topleft_y)
+    )
+    buffer_index += 5
 
 fn change_tile_and_update(U x, U y, U type)
-    change_tile_type(x, y, type)
     update_tile_in_level(Coord(x, y), type)
+    add_tile_change_buffer(x, y, type)
 
 fn advance_hidden_area_animation()
+    if hidden_path_stage == 0
+        return
     if hidden_path_timer == 0
         if hidden_path_stage == 1
             change_tile_and_update(14, 12, 'A')
@@ -843,18 +855,14 @@ fn advance_hidden_area_animation()
 
 nmi main_nmi()
     if ready
-        // check y because a tile will never be melted on the first row
-        // as opposed to type and x which may be 0
-        if tile_delta.y != 0
-            change_tile_type(tile_delta.x, tile_delta.y, tile_delta.type)
-            tile_delta = TileDelta(0, 0, 0)
-        if update_key_tile.x != 0
-            update_tile_in_level(update_key_tile, 'A')
-            change_tile_type(update_key_tile.x, update_key_tile.y, 'A')
-            update_key_tile = Coord(0, 0)
-        if hidden_path_stage > 0
-            advance_hidden_area_animation()
+        PPUBuffer buffer
+        for U i = 0; i < buffer_index; i += 1
+            buffer = buffers[i]
+            if (buffer.adress != 0)
+                ppu_reset_addr(buffer.adress)
+            {PPUDATA}(buffer.value)
 
+        buffer_index = 0
     ppu_upload_oam_poll_pads(0)
     {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
     ppu_reset_scroll(0, 0)
@@ -905,6 +913,7 @@ mode main()
         move_puffle()
         move_block()
         update_sprites()
+        advance_hidden_area_animation()
         nmi
 
 chrrom
