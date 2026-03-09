@@ -26,7 +26,6 @@ vars /game_vars
     Bool has_teleported = false
     U hidden_path_timer = 0
     U hidden_path_stage = 0
-    Bool is_puffle_frozen = false
 
 struct PPUBuffer
     UU adress
@@ -517,7 +516,6 @@ fn check_destination_tile()
         build_next_level()        
     else
         if tile == 'S'
-            is_puffle_frozen = true
             hidden_path_stage = 1
         if !has_teleported && tile == 'T'
             if compare_coord(teleporter1, coords)
@@ -576,8 +574,6 @@ fn check_for_blocks()
             block_timer = 1
 
 fn move_puffle()
-    if is_puffle_frozen
-        return
     if movement_timer == 0
         movement_direction = 0
         if ((pads[0].held & BUTTON_LEFT) && can_move_in_direction(DIRECTION_LEFT))
@@ -831,6 +827,7 @@ fn advance_hidden_area_animation()
     if hidden_path_timer == 0
         if hidden_path_stage == 1
             change_tile_and_update(14, 12, 'A')
+            update_tile_in_level(Coord(13, 11), 'B')
         else if hidden_path_stage == 2
             change_tile_and_update(14, 11, 'A')
         else if hidden_path_stage == 3
@@ -851,7 +848,6 @@ fn advance_hidden_area_animation()
         hidden_path_timer = 0
         if hidden_path_stage == 44
             hidden_path_stage = 0
-            is_puffle_frozen = false
 
 nmi main_nmi()
     if ready
