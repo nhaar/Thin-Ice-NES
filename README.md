@@ -20,6 +20,10 @@ Please check out the NESFab tutorials, the process is the same as building any o
 A file `yychr.chr` is included which is the source .CHR file used to make `tiles.png`, and it's recommended to use it to edit it. To edit it, download [YYCHR](https://www.romhacking.net/utilities/958/).
 Once you open the .chr file, make sure that Format is set to `2BPP NES` and pattern to `FC/NES x8`
 
+# Music
+
+The music is made using [FamiTracker](http://famitracker.com/). The project file is included in `thinice.ftm`, which must be exported as text into `thinice.txt`, which is loaded into the ROM.
+
 # Todo
 
 The following will be done ASAP:

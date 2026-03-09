@@ -858,10 +858,15 @@ nmi main_nmi()
     ppu_upload_oam_poll_pads(0)
     {PPUMASK}(PPUMASK_ON | PPUMASK_NO_CLIP)
     ppu_reset_scroll(0, 0)
+    puf.process(PUF_DEFAULT)
+
+audio(puf1_music, "thinice.txt")
+audio(puf1_sfx)
 
 mode main()
 : nmi main_nmi
-
+    puf.init(system)
+    puf.play_track(0)
     palette = U[25](
     
     // ice / water block
