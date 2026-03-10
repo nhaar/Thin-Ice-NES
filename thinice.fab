@@ -1,3 +1,6 @@
+ct U MELT_TILE_FRAMES = 5
+ct U MELTING_ANIM_LENGTH = U(MELT_TILE_FRAMES * 2)
+
 vars /game_vars
     CCC/levels level_ptr
     // x * 16, y * 16
@@ -5,10 +8,15 @@ vars /game_vars
     U puffle_y = 160
     U movement_timer = 0
     U movement_direction = 0
+
+    // which index is available for melting_tiles
+    U melt_index = 0
+    AnimatedTile[MELT_TILE_FRAMES] melting_tiles
+
     U[240] current_level
 
     U buffer_index = 0
-    PPUBuffer[10] buffers
+    PPUBuffer[25] buffers
 
     U level_number = 1
     Coord spawn_point = Coord(16, 16)
@@ -32,6 +40,11 @@ struct PPUBuffer
     UU adress
     U value
 
+struct AnimatedTile
+    U x
+    U y
+    U timer
+
 ct U TILE_LENGTH = 16
 ct U MOVEMENT_LENGTH = 8
 ct U MOVEMENT_CONSTANT = TILE_LENGTH / MOVEMENT_LENGTH
@@ -51,12 +64,13 @@ ct U DIRECTION_RIGHT = 4
 // l = lock tile
 // h = hole
 // s = level 19 switch
+// m = melting frame 1
 // j = fake wall
 // q = hole with key
 // w = thick ice with key
 // z = block spawn tile
 // x = block spawn but with thick ice
-charmap("ADFHSJTCBLEKQWZX", 0)
+charmap("ADFHSJTCBLEMKQWZX", 0)
 
 
 data /levels
@@ -376,6 +390,11 @@ data /levels
         U(0)
         U(3)
         U(0)
+        U(0)
+        U(0)
+        U(0)
+        U(0)
+        U(0)
 
 fn move_puffle_sprite()
     if movement_direction == 1
@@ -474,7 +493,11 @@ fn melt_tile()
         U new_tile = 0
         // ice -> water
         if (tile == 'A')
-            new_tile = 'C'
+            melting_tiles[melt_index] = AnimatedTile(coords.x, coords.y, 0)
+            melt_index += 1
+            if melt_index >= MELT_TILE_FRAMES
+                melt_index = 0
+            new_tile = 'M'
         // thick -> ice
         else if (tile == 'F')
             new_tile = 'A'
@@ -733,13 +756,16 @@ fn get_ppu_attribute(U topleft, U topright, U bottomleft, U bottomright) U
 fn load_level_into_memory()
     U tile
     U j
+    U i
     block_spawn = Coord(0, 0)
     key_pos = Coord(0, 0)
     teleporter1 = Teleporter(Coord(0, 0), 0)
     teleporter2 = Teleporter(Coord(0, 0), 0)
     hidden_path_stage = 0
     hidden_path_timer = 0
-    for U i = 0; i < 15; i += 1
+    for i = 0; i < MELT_TILE_FRAMES; i += 1
+        melting_tiles[i] = AnimatedTile(0, 0, 0)
+    for i = 0; i < 15; i += 1
         for j = 0; j < 16; j += 1
             tile = (level_ptr + U(i * 16))[j]
             if tile == 'Z' || tile == 'X'
@@ -837,6 +863,17 @@ fn change_tile_and_update(U x, U y, U type)
     update_tile_in_level(Coord(x, y), type)
     add_tile_change_buffer(x, y, type)
 
+fn advance_melt_animation()
+    for U i = 0; i < MELT_TILE_FRAMES; i += 1
+        if melting_tiles[i].x != 0 && melting_tiles[i].timer < MELTING_ANIM_LENGTH
+            melting_tiles[i].timer += 1
+            // advances every two frames
+            if (melting_tiles[i].timer & 1) == 0
+                if melting_tiles[i].timer == MELTING_ANIM_LENGTH
+                    add_tile_change_buffer(melting_tiles[i].x, melting_tiles[i].y, 'C')
+                else
+                    add_tile_change_buffer(melting_tiles[i].x, melting_tiles[i].y, 'M' + (melting_tiles[i].timer >> 1))
+
 fn advance_hidden_area_animation()
     if hidden_path_stage == 0
         return
@@ -921,6 +958,7 @@ mode main()
     {PPUCTRL}(PPUCTRL_NMI_ON)
 
     while true
+        advance_melt_animation()
         update_pads()
         move_puffle()
         move_block()
